@@ -1,0 +1,72 @@
+General:
+   This code is *prototype* code for the PA-II+GR, PA-II+ERUS along with support 
+   code/files. See main.cpp for a list of the parameter options. 
+
+Overview of the code:
+ - The Features class feature.cpp and feature.h handles preprocessing of all features
+   both precomputed or the streaming ones. Unless the parameter "-load-raw-feats" is 
+   passed the Features class loads the normalized parameters from disk. If no files
+   for the normalized parameters are found then the Feature class normalizes the raw
+   features and saves them to disk. The streaming feature extraction is executed
+   from the streamLMFeatures() function of the Feature class.
+ - The hostgraph is built and stored in the HostGraph class (hostGraph.*). It returns
+   edges between nodes for the GR and computes the hostgraph features if necessary. 
+   To use this class call the learner with the flag "-hgf". See examples below. 
+ - PA-II algorithm is in the OnlinePAAlg class in onlinePA.h and onlinePA.cpp. This
+   also has the code for the graph regularizer (GR). 
+ - The Classifier class in classify.h runs the ensemble RUS classifier. Setting the 
+   "-classifiers" parameter controls the number of weak classifiers used. Setting 
+   "-classifiers" to 1 will cause all training data to be used, ie, the training data 
+   is not split into subsets. Classifier is a descendent of Base which just coordinates
+   between the features and the learners. Base class is where the features are selected.
+ - Evaluate class (evaluate.h) does F-measure, and specificity and sensitivity. 
+ - html.h and htmlParser.h are header files that include the code to parse over raw
+   HTML files and extract the LM features.
+ - html.cpp is a script-like file that was used to handle the raw physical format 
+   style data. It includes functions to extract training and testing data from amongst
+   all the WARC archives and group them by website.
+ - all the files in the "include/" directory are support files for the LM, the vocab for
+   the LM, the file handler, the parameter handler etc. 
+ - the naive Bayes class is also included though performance using this learner is poor.
+Compile:
+   $make pa
+     - produces an executable "pa.out" 
+
+Example 1:
+   $./pa.out -hgf -cc 5 -s .02 -ns .03 -epochs 5 -e .5 > scores
+   will run the PA-II+ERUS with 
+     -hgf: hostgraph features
+     -cc: 5 weak PA-II classifiers
+     -s: spam class slack value
+     -ns: nonspam class slack value
+     -epochs: number of epochs for initial training
+     -e: epsilon for regression loss function
+     scores: output file for true labels and probabilities
+
+Example 2:
+  $./pa.out -hgf -cc 1 -s .02 -ns .03 -epochs 5 -e .5 -gr -g .3 -l .1 > scores
+  will run the PA-II+GR with 
+     -hgf: hostgraph features
+     -cc: 5 weak PA-II classifiers
+     -s: spam class slack value
+     -ns: nonspam class slack value
+     -epochs: number of epochs for initial training
+     -e: epsilon for regression loss function
+     -gr: signals graph regularization
+     -g: gamma for GR
+     -l: lambda1 for GR
+     scores: output file for true labels and probabilities
+
+Note on file paths:
+   There are 2 parameters for top-level directory path (-top-dir) and year (-year) but
+   ****ALL OTHER PATHS AND NAMES ARE HARDCODED****. 
+   The list of paths and files the code uses are: 
+   - training ids and labels file
+   - test ids and labels file
+   - hostgraph feature files (raw and normalized)
+   - link feature files (raw and normalized)
+   - obvious features files (raw and normalized)
+   - content features files (raw and normalized)
+   - hosts with missing features file
+   - base LM files (raw data and saved model)
+   - path to raw HTML directory with WARC files (split by website)
