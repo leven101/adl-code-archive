@@ -1,0 +1,2 @@
+mvn compile; 
+mvn exec:java -Dexec.mainClass="uk.ac.ox.cs.diadem.solid.oxpathclient.FactivaScraperByDownload"
