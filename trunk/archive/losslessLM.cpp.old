@@ -1,0 +1,390 @@
+#include <iostream>
+#include <cstdlib>
+#include <algorithm>
+#include "utils.h"
+#include "params.h"
+#include "dirList.h"
+#include "types.h"
+#include "vocab.h"
+#include "file.h"
+
+#include <Trie.cc>
+
+
+#ifdef INSTANTIATE_TEMPLATES
+INSTANTIATE_TRIE(wordID_t, size_t);
+#endif
+
+using namespace std;
+
+const ParamDefs paramdefs[] = {
+  //name, default value, abbrev, type, msg
+  {"top-dir", "../data/reuters/", "dir", Parameters::kStringValue, "Directory with training data."},
+  {"data-ext", "week*.grams.gz", "ext", Parameters::kStringValue, "Data file's extensions."},
+  {"order", "3", "ord", Parameters::kIntValue, "ngram order."},
+  {"mfiOrder", "5", "mfi", Parameters::kIntValue, "mfi bound."},
+  {"baseline", "0", "bl", Parameters::kBoolValue, "if this is a baseline run"},
+  {"time", "2", "tf", Parameters::kIntValue, "the time window to stream over"},
+  {"updateAdd", "0", "add", Parameters::kBoolValue, "whether to replace or add to exisiting LM counts"},
+  {"memory", "15", "m", Parameters::kIntValue, "Upper bound size in MBs."}
+};
+
+// variables and types
+typedef Trie<wordID_t, size_t> node_t;
+static node_t trie_, MFIs_;
+unsigned maxBytes_, 
+         totalEntries_ = 0, 
+         cur_period_ = 0, 
+         last_period_ = 0,
+         time_frame_ = 2,
+         corpusSize_ = 0,
+         order_,
+         mfiOrder_;
+Parameters* params;
+Vocab* vocab;
+vector<double> blScores;
+
+// function definitions
+int processData();
+void insert(const size_t* IDs, const size_t count);
+void batchUpdateLM();
+void memStats(); 
+void dumpTrie(node_t&);
+size_t countChildren(node_t& head);
+size_t randomDelete(size_t numToDel);
+void trackMFIs(const size_t* IDs, const size_t count);
+node_t* randomNode(wordID_t& key);
+size_t corpusSize();
+
+float trieMem() {
+  if(param->getParamValue("baseline") == 1)
+    return 0;
+  else
+    return totalEntries_ * (sizeof(node_t)) * 1.7;
+}  
+
+size_t getPeriod(std::string str) {
+  const date_t period = "week";
+  return atoi(str.substr(str.rfind(period) 
+    + period.size()).c_str());
+}
+
+double getScore(size_t* keys, size_t order) {
+  float alpha = 1.0;
+  size_t gramCnt = 0, subgramCnt = 0, i; 
+  node_t* node = 0;
+  for(i = 0; i < order; i++) {
+    int idx = i;  // start from history keys[i]
+    gramCnt = subgramCnt = 0;
+    node = &trie_;
+    // descend to the longest available trie path
+    while(idx < order) {
+      node = node->findTrie(keys[idx]);
+      if(node) {
+        subgramCnt = gramCnt;
+        gramCnt = node->value();
+        idx++;
+      }
+      else {
+        break;
+      }
+    }
+    if(idx == order) 
+      break;  // stop if found full ngram
+    else 
+      alpha *= 0.4;
+  } 
+  // if nothing was found
+  if(gramCnt == 0) {
+    return 0;
+  } // handle unigram case
+  else if(subgramCnt == 0 && gramCnt > 0 
+      && i == order - 1) {
+    subgramCnt = corpusSize_;
+    alpha = 1;
+  }
+  double result = alpha * (float(gramCnt) / float(subgramCnt));
+  if(gramCnt > subgramCnt) {
+    cerr << "Result=" << result;
+    cerr << ", i=" << i << endl;
+    for(int j=0; j < order; j++)
+      cerr << vocab->getWord(keys[j]) << " "; 
+    cerr << endl << "GramCnt=" << gramCnt;
+    cerr << ", SubGramCnt=" << subgramCnt << endl << endl;
+    return 0;
+  }
+  return result; 
+}
+
+void testLM() {
+  unsigned no_key;
+  Map_noKey(no_key);
+  vector<double> scores;
+  DirList testDir(params->getParamValue("top-dir") + "test/",
+                  params->getParamValue("data-ext"));
+  iterate(testDir.cFileList_, itr) {
+    // for each testFile
+    FileHandler testFile(*itr, ios::in);
+    string line;
+    while(getline(testFile, line)) {
+      // split up ngram and associated count
+      vector<string> linedata;
+      Utils::tokenizeToStr(line, linedata, "\t");
+      line = linedata[0];
+      // split up ngram
+      Utils::tokenizeToStr(line, linedata, " ");
+      size_t wrdIDs[linedata.size() + 1];
+      for(int i=0; i < linedata.size(); i++) {
+        // map to vocab
+        wrdIDs[i] = vocab->getWordID(linedata[i]);
+      }
+      wrdIDs[linedata.size()] = no_key;
+      //cerr << getScore(wrdIDs, linedata.size()) << endl;
+      scores.push_back(getScore(wrdIDs, linedata.size())); 
+    }
+  }
+  
+  if(params->getParamValue("baseline") == "1") {
+    // save scores to file
+    FileHandler scoreFile("baseline.scores", ios::out, false);
+    iterate(scores, itr)
+      scoreFile << *itr << endl;
+  }
+  else { 
+    // if scores haven't been read in yet
+    if(blScores.empty()) {
+      //cerr << "Reading in baseline scores...\n";
+      // read in baseline scores from file
+      FileHandler scoreFile("baseline.scores", ios::in);
+      string line;
+      while(getline(scoreFile, line)){
+        blScores.push_back(atof(line.c_str()));
+      }
+    }
+    // output MSE
+    double mse = 0, diff = 0;
+    for(int i=0; i < scores.size(); i++) {
+      diff = blScores[i] - scores[i];
+      mse += (diff * diff);
+    }
+    //print stuff
+    cerr << "Current period=" << cur_period_ << "\nMSE=" << mse/float(scores.size()) << endl;
+  }
+}
+
+int processData() {
+  unsigned no_key;
+  Map_noKey(no_key);
+  DirList dir_(params->getParamValue("top-dir"),    // which directory
+               params->getParamValue("data-ext"));  // which file extensions
+  iterate(dir_.cFileList_, itr) {                       // open each file
+    //extract time period
+    cur_period_ = getPeriod(*itr);
+    FileHandler gramsFile(*itr, ios::in);
+    string line; 
+    while(getline(gramsFile, line)) {
+      // split up ngram and associated count
+      vector<string> linedata;
+      assert(Utils::tokenizeToStr(line, linedata, "\t") == 2);
+      line = linedata[0];
+      size_t count = atoi(linedata[1].c_str());
+      // split up ngram
+      Utils::tokenizeToStr(line, linedata, " ");
+      size_t wrdIDs[linedata.size() + 1];
+      for(int i=0; i < linedata.size(); i++) {
+        // map to vocab
+        wrdIDs[i] = vocab->getWordID(linedata[i]);
+      }
+      wrdIDs[linedata.size()] = no_key;
+      insert(wrdIDs,count);
+      trackMFIs(wrdIDs,count);
+    }
+  }
+  batchUpdateLM();
+  testLM();
+  return 0;
+}
+
+size_t corpusSize() {
+  // training corpus size is sum of unigram counts
+  size_t count = 0;
+  node_t* node;
+  size_t key;
+  TrieIter<wordID_t, size_t> itr(trie_);
+  while(node = itr.next(key)) 
+    count += node->value();
+  return count;
+}
+
+/*NOTE: Could also update LM when a certain number 
+  of new items have been found */
+void insert(const size_t* IDs, const size_t count) {
+// Fill trie untill space param is reached. (Time period 0)
+  static bool full = false, testFirst = true;
+  static unsigned first_period = 0;
+  if(!full) {
+    if(trieMem() < maxBytes_) {
+      bool fnd = true;
+      *trie_.insert(IDs, fnd) += count;
+      if(!fnd) totalEntries_++;
+    }
+    else {
+      cerr << "Memory bound reached. (totalEntries=" << totalEntries_ << ")\n";
+      memStats();
+      last_period_ = cur_period_;
+      first_period = cur_period_;
+      full = true;
+    }
+  } // finish inserting week to avoid smoothing problems
+  else if(cur_period_ == first_period) {
+    bool fnd = true;
+    *trie_.insert(IDs, fnd) += count;
+    if(!fnd) totalEntries_++;
+  } // conduct first test over initial LM data
+    // should be no inconsistencies 
+  else if((cur_period_ == first_period + 1) && testFirst) {
+    corpusSize_ = corpusSize();
+    testLM();
+    MFIs_.clear();
+    testFirst = false;
+  }// when space param is reached update after designated time period
+  else if(time_frame_ <= abs(int(cur_period_ - last_period_))) {
+    batchUpdateLM();
+    corpusSize_ = corpusSize();
+    testLM();
+    last_period_ = cur_period_; 
+  }
+}
+
+void batchUpdateLM() {
+/* This funcion
+ *   - iterates through the current MFIs
+ *   - adds each to LM 
+ *   - deletes nodes from the main LM
+ */
+  size_t inserted = 0, deleted = 0,
+    order = order_; 
+  node_t* newItem, *oldItem;
+  size_t* count;
+  bool fnd;
+  deleted += randomDelete(countChildren(MFIs_));
+  for(int i=1; i <= order; i++) {
+    wordID_t keys[i];  
+    TrieIter2<wordID_t, size_t> iter2(MFIs_, keys, i);
+    while(newItem = iter2.next()) {
+      oldItem = trie_.insertTrie(keys,fnd);
+      if(oldItem->value() < newItem->value())
+        oldItem->value() = newItem->value();
+      inserted++;
+    }
+  }
+  // constrain size blah blah
+  /*if(inserted > deleted) 
+   * randomDelete(inserted-deleted);
+   */ 
+  // clear old MFIs
+  MFIs_.clear();
+}
+
+size_t randomDelete(size_t num2Del) {
+/*
+ * This function 
+ *   - chooses a random target node from the LM
+ *   - iterates through the target nodes children
+ *   - deletes any entries that have few children
+ *     while num2Del > deleted. 
+ *   - deletes from unigrams up to |order|grams.
+ */
+  size_t deleted = 0, order = order_; 
+  const size_t deleteBelow = 20;
+  wordID_t keys[order + 1];
+  node_t* parent, *child;
+  while(deleted < num2Del) {
+    parent = randomNode(keys[0]);
+    size_t parentSize = countChildren(*parent) + 1;
+    // remove if small node
+    if(parentSize <= deleteBelow) {
+      trie_.remove(keys[0]);
+      deleted += parentSize;
+    }
+    else {
+      for(int i=1; i < order - 1; i++) {  // for each order ngram
+        // iterate over target node's children
+        TrieIter2<wordID_t, size_t> iter2(*parent, keys, i);  
+        while((child = iter2.next()) && (deleted < num2Del)) {
+          size_t childSize = countChildren(*child) + 1;
+          if((childSize < deleteBelow)) {
+            parent->remove(keys);      // remove it
+            deleted += childSize;
+          }
+        }
+        if(deleted >= num2Del) break;
+      }
+    }
+  }
+  return deleted;
+}
+
+node_t* randomNode(wordID_t& key) {
+  /* selects a random node from the LM*/
+  node_t* node;
+  TrieIter<wordID_t, size_t> iter1(trie_);
+  size_t target = 0 , q = 0;
+  target = (rand() % trie_.numEntries()); // choose random target
+  if(target == 0) target++;
+  assert(target <= trie_.numEntries());
+  while(q++ < target)  // iterate to target node
+    node = iter1.next(key);  
+  return node;
+}
+
+void dumpTrie(node_t& head) {
+  TrieIter<wordID_t, size_t> trieIter_(head);
+  wordID_t key;
+  node_t* node;
+  static int indent = 0;
+  indent += 2;
+  while(node = trieIter_.next(key)) {
+    for(int i = 0; i < indent; i++) cerr << " ";
+    cout << key << " / " << node->value()  << endl;
+    dumpTrie(*node);
+  }
+  indent -= 2;
+}
+
+void memStats() {
+  MemStats memuse;
+  trie_.memStats(memuse);
+  memuse.print();
+}
+
+size_t countChildren(node_t& head) {
+  TrieIter<wordID_t, size_t> trieIter_(head);
+  wordID_t key;
+  node_t *node;
+  size_t children = head.numEntries();
+  while(node = trieIter_.next(key)) {
+    children += countChildren(*node);
+  }
+  return children;
+}
+
+void trackMFIs(const size_t* IDs, const size_t count) {
+  // track most frequent items
+  if(count >= mfiOrder_)
+     *MFIs_.insert(IDs) += count;
+}
+
+int main(int argc, char** argv) {
+  srand(time(NULL));
+  params = new Parameters(argc, argv, paramdefs, NumOfParams(paramdefs));
+  maxBytes_ = atoi(params->getParamValue("memory").c_str()) * (1UL << 20);
+  order_ = atoi(params->getParamValue("order").c_str());
+  mfiOrder_ = atoi(params->getParamValue("mfiOrder").c_str());
+  time_frame_ = atoi(params->getParamValue("time").c_str());
+  vocab = new Vocab();
+  processData();
+  delete vocab;
+  delete params;
+  return 0;
+}      
