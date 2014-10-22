@@ -1,0 +1,96 @@
+#!/usr/bin/python
+
+import time;
+import os;
+from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support.ui import WebDriverWait # available since 2.4.0
+from selenium.webdriver.support import expected_conditions as EC # available since 2.26.0
+from selenium.webdriver.support.ui import Select
+
+searchQuery = "nonfarm near20 (predict$ or forecast$)";
+months = {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30, 10:31, 11:30, 12:31};
+
+def createDataFolder():
+  global folder; 
+  folder = './data/' + str(time.time()).replace('.', '');
+  try:
+    os.makedirs(folder)
+  except OSError:
+    raise 
+
+def save(fname, text):
+  f = open(folder+"/"+fname, 'w');
+  f.write(text.encode('utf8'));
+  f.close();
+
+def login(driver):
+  fin = open('login.txt', 'r').readlines();
+  driver.get("http://oxford1-direct.hosted.exlibrisgroup.com/V/3PV6CKJ26USICFNEVXV5KG6K1KL5SHQRFCGH32DNECR6PDT5YN-39390?func=native-link&resource=OXF00954");
+  driver.find_element_by_id("username").send_keys("coml0399");
+  driver.find_element_by_id("password").send_keys("webauthPassword1"); 
+  driver.find_element_by_name("Submit").click();
+  driver.find_element_by_xpath("/html/body/div/div/div[2]/a").click();    
+
+def crawl(year, month, frd, tod):
+  try:
+    createDataFolder();
+    driver = webdriver.Firefox(); # Create a new instance of the Firefox driver
+    driver.implicitly_wait(10);
+    login(driver);
+    # keywords
+    driver.find_element_by_xpath("//*[@id='ftx']").send_keys(searchQuery);
+    # date ranges
+    selectDate = Select(driver.find_element_by_xpath("//*[@id='dr']"));
+    selectDate.select_by_visible_text("Enter data range...");
+    driver.find_element_by_id('frd').send_keys(frd);
+    driver.find_element_by_id('frm').send_keys(month);
+    driver.find_element_by_id('fry').send_keys(year);
+    driver.find_element_by_id('tod').send_keys(tod);
+    driver.find_element_by_id('tom').send_keys(month);
+    driver.find_element_by_id('toy').send_keys(year);
+    # select region
+    driver.find_element_by_id("reTab").click();
+    driver.find_element_by_xpath("/html/body/form[2]/div[3]/div[2]/table/tbody/tr[16]/td[2]/div[2]/ul/li[15]/span").click();
+    driver.find_element_by_xpath("/html/body/form[2]/div[3]/div[2]/table/tbody/tr[16]/td[2]/div[2]/ul/li[15]/div/ul/li[6]/a[1]").click();
+    time.sleep(3);
+    # click search
+    driver.find_element_by_xpath("/html/body/form[2]/div[3]/div[2]/table/tbody/tr[2]/td/div/div/table/tbody/tr/td[2]/div[3]/div[2]/ul/li/div/span").click();
+    # get total items to crawl
+    sAllTxt = driver.find_element_by_xpath("//*[@id='headlineHeader33']/table/tbody/tr/td/span[2]").text;
+    totArticles = int(sAllTxt.split(" ")[-1]);
+    totPages = totArticles / 100;
+    if(totArticles % 100 != 0):
+      totPages +=1;
+    curPage=1;
+    while(curPage <= totPages):
+      alltxt = "";
+      a_list = driver.find_elements_by_xpath("//a[@class='enHeadline']");
+      cnt = 0;
+      for a in a_list:
+        cnt += 1;
+        if(cnt > 5):
+          break;
+        a.click(); 
+        txt = driver.find_element_by_xpath("/html/body/form[2]/div[2]/div[2]/div[3]/div[3]/div/div[2]/div/div[2]/div[3]").text;
+        alltxt += txt; 
+      save("page" + str(curPage), alltxt);
+      if(curPage < totPages): # click "Next 100"
+        driver.find_element_by_xpath("//div[@class='headlineHeader']//a[last()]").click();
+        time.sleep(2);
+      curPage += 1;
+  finally:
+    ();
+    driver.quit()
+
+def main():
+  frd = 1;
+  for y in range(2010, 2011):
+    year = y;
+    for m in range(1, 13):
+      tod = months[m];
+      print 'Year:', y, 'Month:', m, 'From:', frd, 'To:', tod;
+      crawl(year, m, frd, tod);
+      break;
+main();
+
