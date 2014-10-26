@@ -12,7 +12,6 @@ file.o: ${INC}/file.h ${INC}/file.cpp ${INC}/fdstream.h
 	g++ -c ${CCFLAGS} ${INC}/file.cpp 
 params.o: ${INC}/params.h ${INC}/params.cpp file.o
 	g++ -c ${CCFLAGS} ${INC}/params.cpp 
-main: distributions.h file.o params.o 
-	g++ ${SRC}/solid/file.o ${SRC}/solid/params.o ${LIBS} ${INCPATHS} \
-	${IBAPIFLAGS} -I${IBAPIINC} -I${IBAPITEST} -L${IBAPITEST} -libapi \
+main: ${INC}/distributions.h file.o params.o 
+	g++ ${SRC}/file.o ${SRC}/params.o ${LIBS} ${INCPATHS} \
 	goldlabels.cpp ibcc.cpp main.cpp
