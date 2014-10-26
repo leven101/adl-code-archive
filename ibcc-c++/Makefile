@@ -14,4 +14,4 @@ params.o: ${INC}/params.h ${INC}/params.cpp file.o
 	g++ -c ${CCFLAGS} ${INC}/params.cpp 
 main: ${INC}/distributions.h file.o params.o 
 	g++ ${SRC}/file.o ${SRC}/params.o ${LIBS} ${INCPATHS} \
-	goldlabels.cpp ibcc.cpp main.cpp
+	ibcc.cpp main.cpp

@@ -3,6 +3,8 @@
 
 #include <cstdlib>
 #include <vector>
+#include <map>
+#include <set>
 #include <string>
 #include <sstream>
 #include <cctype>
@@ -10,6 +12,10 @@
 #include <cstring>
 #include <sys/stat.h>
 #include <unistd.h>
+
+using std::vector;
+using std::map;
+using std::set;
 
 class Utils {
 public: 

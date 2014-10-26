@@ -3,7 +3,9 @@
 
 #include <algorithm>
 #include "distributions.h"
+#include "types.h"
 #include "log_add.h"
+#include "params.h"
 
 class IBCC {
 public:
@@ -39,8 +41,7 @@ private:
 };
 class SIBCC: public IBCC {
 public:
-  SIBCC(Parameters p, threeD_t& d, GoldLabels& g): IBCC(p, d, g) {
-  }
+  //SIBCC(Parameters p, threeD_t& d, GoldLabels& g): IBCC(p, d, g) {}
   SIBCC(Parameters p): IBCC(p) {
   }
 private:
@@ -50,10 +51,10 @@ private:
 
 class CIBCC: public IBCC {
 public:
-  CIBCC(Parameters p, threeD_t& d, GoldLabels& g): IBCC(p, d, g) {
+  /*CIBCC(Parameters p, threeD_t& d, GoldLabels& g): IBCC(p, d, g) {
     cerr << "noClasses: " << noClasses_ << "\tnoOutputs: " << noOutputs_ << endl;
     assert(noClasses_ == noOutputs_);
-  }
+  }*/
   CIBCC(Parameters p): IBCC(p) {
     assert(noClasses_ == noOutputs_);
   }
