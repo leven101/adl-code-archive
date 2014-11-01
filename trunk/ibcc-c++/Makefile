@@ -1,4 +1,4 @@
-ROOTDIR=${HOME}/work/src
+ROOTDIR=${HOME}/work/adl-code-archive
 SRC=${ROOTDIR}/ibcc-c++
 INC=${SRC}/include
 DEFS=-D_FILE_OFFSET_BITS=64 -D_LARGE_FILES -O3

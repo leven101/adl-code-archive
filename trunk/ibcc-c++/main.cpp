@@ -15,10 +15,10 @@ const ParamDefs paramdefs[] = {
 int main(int argc, char** argv) {
   Parameters params(argc, argv, paramdefs, NumOfParams(paramdefs));
   cerr << endl << "Starting IBCC..." << endl;
-  /*const int itr = atoi(params.getParam("vb-itr").c_str());
+  const int itr = atoi(params.getParam("vb-itr").c_str());
   //CIBCC ibcc(params, weakClfs, gldLbls); // send data straight from models
   CIBCC ibcc(params);
   ibcc.train(itr);
   ibcc.backtest();
-  return 1;*/
+  return 1;
 }
