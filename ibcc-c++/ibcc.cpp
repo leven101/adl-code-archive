@@ -5,7 +5,7 @@ bool debug_ = false;
 IBCC::IBCC(Parameters p): params_(p) {
   cout.precision(4);
   cerr.precision(4);
-  string fname = "./wcOutput"; //params_.getParam("ts-file");
+  string fname = params_.getParam("input");
   assert(Utils::fileExists(fname));
   matrixFromFile(fname);
   noTstEps_ = atoi(params_.getParam("test-epochs").c_str());
@@ -427,7 +427,7 @@ void SIBCC::expctRho() {
     }*/
   }
 }
-//0	0	0.072575032711029052734375	0.275344908237457275390625	0.1575736105442047119140625	0.15981619060039520263671875	0.22091777622699737548828125	0.113772474229335784912109375	1	3	
+
 void IBCC::matrixFromFile(const string& fname) {
   // load data from file
   FileHandler fin(fname, std::ios::in);
