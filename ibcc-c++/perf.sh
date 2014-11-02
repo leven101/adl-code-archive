@@ -1,4 +1,5 @@
-fin="wcOutput"
+#fin="wcOutput"
+fin="asdf"
 ss=`wc -l $fin`
 for word in $ss
 do 
@@ -32,6 +33,6 @@ done
 for (( i=$totEps; i<=$lines; i+=$totEps ))
 do
    echo "Source $((src+=1))"
-   head -n $i $fin | tail -n $testPts | egrep "(\t$c2c\t[0-9]$)|($c2c$)" \
+   head -n $i $fin | tail -n $testPts | egrep "(\t$c2c\t[0-9]$)|(\t$c2c$)" \
     | awk '{print(c2c != $NF ? 0 : 1)"\t"$(c2c+3)}' c2c=$2 | ../perf.src/perf -acc -prf -pre -rec -roc 
 done
