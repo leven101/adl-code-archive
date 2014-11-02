@@ -11,7 +11,7 @@ class IBCC {
 public:
   //IBCC(Parameters, threeD_t&, GoldLabels&);
   IBCC(Parameters);
-  void train(int);
+  void train();
   float backtest();
 protected:
   Parameters params_;
