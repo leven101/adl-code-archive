@@ -141,9 +141,10 @@ void IBCC::initAlpha0() {
     }
   }
 }
-void IBCC::train(int noItr) {
+void IBCC::train() {
   initialize();
-  for(int i=0; i < noItr; ++i) {
+  const int itr = atoi(params_.getParam("vb-itr").c_str());
+  for(int i=0; i < itr; ++i) {
     cerr << "VB Iteration " << (i+1) << "..." << endl;
     // E-step
     lblCnts(i==0); // get class counts  
@@ -164,11 +165,15 @@ float IBCC::backtest() {
   }
   cerr << endl;
   for(size_t i=noTrEps_; i < goldLbls_.size(); ++i) {
-    cout << goldLbls_[i] << "\t";
+    cout << "0\t" << (i-noTrEps_) << "\t";
     for(int j=0; j < noClasses_; ++j) {
       cout << exp(rho_[i][j]) << "\t"; 
     }
-    cout << endl;
+    // get iterator to greatest prob class 
+    vf_t::iterator it =  std::max_element(rho_[i].begin(), rho_[i].end());
+    const int idx = it - rho_[i].begin();
+    cout << idx << "\t"; //prob(class 0)
+    cout << goldLbls_[i] << endl;
   }
   return exp(rho_[goldLbls_.size()-1][1]);
 }
@@ -430,6 +435,7 @@ void SIBCC::expctRho() {
 
 void IBCC::matrixFromFile(const string& fname) {
   // load data from file
+  cerr << "Loading WC posteriors from " << fname << "..." << endl;
   FileHandler fin(fname, std::ios::in);
   string line;
   vector<string> v;
@@ -457,4 +463,5 @@ void IBCC::matrixFromFile(const string& fname) {
     }
   }
   fin.close();
+  cerr << "Finished loading data." << endl;
 }
