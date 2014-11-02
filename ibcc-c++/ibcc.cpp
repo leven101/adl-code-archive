@@ -22,7 +22,7 @@ IBCC::IBCC(Parameters p): params_(p) {
 }
 void IBCC::initialize() {
   cerr << "Initialising priors..." << endl;
-  debug_ = true;
+  debug_ = false;
   initRho();
   initNu0();
   initAlpha0();
