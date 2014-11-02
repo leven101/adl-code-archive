@@ -165,7 +165,7 @@ float IBCC::backtest() {
   }
   cerr << endl;
   for(size_t i=noTrEps_; i < goldLbls_.size(); ++i) {
-    cout << "0\t" << (i-noTrEps_) << "\t";
+    cout << "0\t" << int(i-noTrEps_) << "\t";
     for(int j=0; j < noClasses_; ++j) {
       cout << exp(rho_[i][j]) << "\t"; 
     }
