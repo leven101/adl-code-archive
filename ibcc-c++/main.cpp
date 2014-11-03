@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
   Parameters params(argc, argv, paramdefs, NumOfParams(paramdefs));
   cerr << endl << "Starting IBCC..." << endl;
   //CIBCC ibcc(params, weakClfs, gldLbls); // send data straight from models
-  SIBCC ibcc(params);
+  CIBCC ibcc(params);
   ibcc.train();
   ibcc.backtest();
   return 1;

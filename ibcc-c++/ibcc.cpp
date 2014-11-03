@@ -105,27 +105,25 @@ void IBCC::initAlpha0() {
     }
   }
   else { // initialize based on weak classifier counts
+    { // add true label counts
+      for(int i=0; i < noSrcs_ ; ++i) { // for each source
+        for(int j=0; j < noTrEps_; ++j) { // for each training epoch
+          // prior is correct answer
+          float *p = &alpha0_[i][trainLbls_[j]][trainLbls_[j]]; 
+          *p = Log<double>::add(*p, 0); // log(1)
+        }
+      }
+    }
     for(int i=0; i < noSrcs_ ; ++i) { // for each source
       for(int j=0; j < noTrEps_; ++j) { // for each training epoch
          // CIBCC - count partial predictions
-        for(size_t k=0; k < noOutputs_; ++k) {
-          float *p = &alpha0_[i][trainLbls_[j]][k]; 
-          *p = Log<double>::add(*p, log(data_[i][j][k])); 
-        }
-        /*
+        //for(size_t k=0; k < noOutputs_; ++k) {
+        //  float *p = &alpha0_[i][trainLbls_[j]][k]; 
+        //  *p = Log<double>::add(*p, log(data_[i][j][k])); 
+        //}
         // SIBCC - count class predictions 
-        float *p = &alpha0_[i][trainLbls_[j]][data_[i][j].back()];
-        *p = Log<double>::add(*p, 0); // log(1)
-        */
-      }
-    }
-  }
-  { // add true label counts
-    for(int i=0; i < noSrcs_ ; ++i) { // for each source
-      for(int j=0; j < noTrEps_; ++j) { // for each training epoch
-        // prior is correct answer
-        float *p = &alpha0_[i][trainLbls_[j]][trainLbls_[j]]; 
-        *p = Log<double>::add(*p, 0); // log(1)
+         float *p = &alpha0_[i][trainLbls_[j]][data_[i][j].back()];
+         *p = Log<double>::add(*p, 0); // log(1)
       }
     }
   }
