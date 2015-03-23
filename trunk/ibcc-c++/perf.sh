@@ -1,5 +1,4 @@
-#fin="wcOutput"
-fin="asdf"
+fin="ibccOut"  
 ss=`wc -l $fin`
 for word in $ss
 do 
