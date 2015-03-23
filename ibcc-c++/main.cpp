@@ -5,6 +5,7 @@ using namespace std;
 const ParamDefs paramdefs[] = {
   //name, default value, abbrev, type, msg
   {"input", "./wcOutput", "i", Parameters::kStringValue, "Input file with weak classifier distributions"},
+  {"output", "./ibccOut", "o", Parameters::kStringValue, "Output file with IBCC class predictions"},
   {"test-epochs", "1", "t", Parameters::kIntValue, "Number of instances to test"},
   {"skip", "0", "", Parameters::kIntValue, "First number of lines in input file to skip"}, 
   {"vb-itr", "5", "vb", Parameters::kIntValue, "Number of Variational Bayes iterations to run"},
@@ -15,8 +16,8 @@ const ParamDefs paramdefs[] = {
 int main(int argc, char** argv) {
   Parameters params(argc, argv, paramdefs, NumOfParams(paramdefs));
   cerr << endl << "Starting IBCC..." << endl;
-  //CIBCC ibcc(params, weakClfs, gldLbls); // send data straight from models
-  CIBCC ibcc(params);
+  //SIBCC ibcc(params); // train with hard label predictions
+  CIBCC ibcc(params); // train with soft predictions
   ibcc.train();
   ibcc.backtest();
   return 1;

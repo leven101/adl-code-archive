@@ -117,13 +117,13 @@ void IBCC::initAlpha0() {
     for(int i=0; i < noSrcs_ ; ++i) { // for each source
       for(int j=0; j < noTrEps_; ++j) { // for each training epoch
          // CIBCC - count partial predictions
-        //for(size_t k=0; k < noOutputs_; ++k) {
-        //  float *p = &alpha0_[i][trainLbls_[j]][k]; 
-        //  *p = Log<double>::add(*p, log(data_[i][j][k])); 
-        //}
+        for(size_t k=0; k < noOutputs_; ++k) {
+          float *p = &alpha0_[i][trainLbls_[j]][k]; 
+          *p = Log<double>::add(*p, log(data_[i][j][k])); 
+        }
         // SIBCC - count class predictions 
-         float *p = &alpha0_[i][trainLbls_[j]][data_[i][j].back()];
-         *p = Log<double>::add(*p, 0); // log(1)
+        // float *p = &alpha0_[i][trainLbls_[j]][data_[i][j].back()];
+        // *p = Log<double>::add(*p, 0); // log(1)
       }
     }
   }
@@ -162,17 +162,19 @@ float IBCC::backtest() {
     cerr << i << ": " << exp(kappa_[i]) << "\t";
   }
   cerr << endl;
+  FileHandler fout(params_.getParam("output"), std::ios::out, false);
   for(size_t i=noTrEps_; i < goldLbls_.size(); ++i) {
-    cout << "0\t" << int(i-noTrEps_) << "\t";
+    fout << "0\t" << int(i-noTrEps_) << "\t";
     for(int j=0; j < noClasses_; ++j) {
-      cout << exp(rho_[i][j]) << "\t"; 
+      fout << exp(rho_[i][j]) << "\t"; 
     }
     // get iterator to greatest prob class 
     vf_t::iterator it =  std::max_element(rho_[i].begin(), rho_[i].end());
     const int idx = it - rho_[i].begin();
-    cout << idx << "\t"; //prob(class 0)
-    cout << goldLbls_[i] << endl;
+    fout << idx << "\t"; //prob(class 0)
+    fout << goldLbls_[i] << endl;
   }
+  fout.close();
   return exp(rho_[goldLbls_.size()-1][1]);
 }
 void IBCC::updateNu() {
