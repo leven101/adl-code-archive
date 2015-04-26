@@ -1,6 +1,6 @@
 #include "ibcc.h"
 
-bool debug_ = false;
+bool debug_;
 
 IBCC::IBCC(Parameters p): params_(p) {
   cout.precision(4);
@@ -22,7 +22,7 @@ IBCC::IBCC(Parameters p): params_(p) {
 }
 void IBCC::initialize() {
   cerr << "Initialising priors..." << endl;
-  debug_ = false;
+  debug_ = true;
   initRho();
   initNu0();
   initAlpha0();
@@ -162,7 +162,9 @@ float IBCC::backtest() {
     cerr << i << ": " << exp(kappa_[i]) << "\t";
   }
   cerr << endl;
-  FileHandler fout(params_.getParam("output"), std::ios::out, false);
+  string outputPath = params_.getParam("output");
+  cerr << "Saving test epochs to: " << outputPath << endl;
+  FileHandler fout(outputPath, std::ios::out, false);
   for(size_t i=noTrEps_; i < goldLbls_.size(); ++i) {
     fout << "0\t" << int(i-noTrEps_) << "\t";
     for(int j=0; j < noClasses_; ++j) {

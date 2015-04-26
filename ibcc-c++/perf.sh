@@ -1,4 +1,4 @@
-fin="ibccOut"  
+fin="wcOutput"  
 ss=`wc -l $fin`
 for word in $ss
 do 
@@ -25,10 +25,6 @@ testPts=$1;
 c2c=$2
 echo "Total lines in file: $lines"
 echo "Total epochs: $totEps. Testing epochs: $testPts"
-for (( c=$totEps; c<=$lines; c+=$totEps ))
-do
-   echo "Welcome $c times"
-done
 for (( i=$totEps; i<=$lines; i+=$totEps ))
 do
    echo "Source $((src+=1))"
