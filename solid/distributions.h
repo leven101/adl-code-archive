@@ -1,7 +1,7 @@
 #ifndef dist_solid_h 
 #define dist_solid_h
 
-//#include <boost/math/special_functions/digamma.hpp>
+#include <boost/math/special_functions/digamma.hpp>
 #include "header.h"
 #include <numeric> 
 
